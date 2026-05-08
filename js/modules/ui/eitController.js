@@ -107,6 +107,7 @@ let eitState = {
 };
 let first20OverlayActive = false;
 let tableElectronStyleActive = false;
+let s3ModeActive = false;
 
 const TABLE_STYLE_STORAGE_KEY = "uniplus_table_style";
 const TABLE_STYLE_ELECTRONS_VALUE = "electrons";
@@ -114,6 +115,120 @@ const TABLE_STYLE_ELECTRONS_VALUE = "electrons";
 function applyTableStyleClass(tableContainer) {
   if (!tableContainer) return;
   tableContainer.classList.toggle("table-style-electrons", tableElectronStyleActive === true);
+}
+
+function captureS3OriginalLayout(tableContainer) {
+  if (!tableContainer) return;
+  if (tableContainer.dataset.s3OrigCaptured === "true") return;
+  Array.from(tableContainer.children).forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+    if (node.dataset.s3OrigGridColumn === undefined) node.dataset.s3OrigGridColumn = node.style.gridColumn || "";
+    if (node.dataset.s3OrigGridRow === undefined) node.dataset.s3OrigGridRow = node.style.gridRow || "";
+    if (node.dataset.s3OrigDisplay === undefined) node.dataset.s3OrigDisplay = node.style.display || "";
+  });
+  tableContainer.dataset.s3OrigCaptured = "true";
+}
+
+function mapS3Column(originalCol) {
+  // originalCol: 1..18 (periodic-table columns, excluding the period-label column)
+  if (originalCol === 1 || originalCol === 2) return originalCol; // Groups I, II stay
+  if (originalCol >= 13 && originalCol <= 18) return originalCol - 10; // Groups III..0 shift left
+  return null; // Collapse d-block (3..12)
+}
+
+function applyS3Mode(tableContainer) {
+  if (!tableContainer) return;
+  const root = document.getElementById("eit-controller");
+  const active = s3ModeActive === true;
+
+  captureS3OriginalLayout(tableContainer);
+  document.body?.classList.toggle("s3-mode", active);
+  root?.classList.toggle("s3-mode", active);
+  tableContainer.classList.toggle("s3-mode", active);
+
+  Array.from(tableContainer.children).forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+
+    const restore = () => {
+      node.style.display = node.dataset.s3OrigDisplay || "";
+      node.style.gridColumn = node.dataset.s3OrigGridColumn || "";
+      node.style.gridRow = node.dataset.s3OrigGridRow || "";
+      node.classList.remove("s3-in", "s3-hidden");
+    };
+
+    if (!active) {
+      restore();
+      return;
+    }
+
+    const cl = node.classList;
+    const isElementCell = cl.contains("element") && !!node.dataset.elementNumber;
+    const isGroupLabel = cl.contains("group-label");
+    const isPeriodLabel = cl.contains("period-label");
+    const isCorner = cl.contains("empty") && node.style.gridRow === "1" && node.style.gridColumn === "1";
+    const isEitController = node.id === "eit-controller";
+
+    if (isCorner) return;
+
+    // Hide all non-table utility blocks (empty placeholders, legend, controller, etc.)
+    if (!isElementCell && !isGroupLabel && !isPeriodLabel && !isEitController) {
+      node.style.display = "none";
+      node.classList.add("s3-hidden");
+      return;
+    }
+
+    if (isEitController) {
+      node.style.display = "";
+      node.classList.remove("s3-hidden");
+      return;
+    }
+
+    if (isElementCell) {
+      const z = Number.parseInt(node.dataset.elementNumber || "", 10);
+      const keep = Number.isFinite(z) && z >= 1 && z <= 20;
+      if (!keep) {
+        node.style.display = "none";
+        node.classList.add("s3-hidden");
+        return;
+      }
+
+      const origGridCol = Number.parseInt((node.dataset.s3OrigGridColumn || node.style.gridColumn || "").split("/")[0], 10);
+      const origCol = Number.isFinite(origGridCol) ? (origGridCol - 1) : null;
+      const mapped = origCol ? mapS3Column(origCol) : null;
+      if (!mapped) {
+        node.style.display = "none";
+        node.classList.add("s3-hidden");
+        return;
+      }
+
+      node.style.gridColumn = String(mapped + 1);
+      node.style.display = "";
+      node.classList.add("s3-in");
+      return;
+    }
+
+    if (isGroupLabel) {
+      const origGridCol = Number.parseInt((node.dataset.s3OrigGridColumn || node.style.gridColumn || "").split("/")[0], 10);
+      const origCol = Number.isFinite(origGridCol) ? (origGridCol - 1) : null;
+      const mapped = origCol ? mapS3Column(origCol) : null;
+      if (!mapped) {
+        node.style.display = "none";
+        node.classList.add("s3-hidden");
+        return;
+      }
+      node.style.gridColumn = String(mapped + 1);
+      node.style.display = "";
+      return;
+    }
+
+    if (isPeriodLabel) {
+      const origGridRow = Number.parseInt((node.dataset.s3OrigGridRow || node.style.gridRow || "").split("/")[0], 10);
+      const origRow = Number.isFinite(origGridRow) ? (origGridRow - 1) : null;
+      const keep = origRow !== null && origRow >= 1 && origRow <= 4;
+      node.style.display = keep ? "" : "none";
+      if (!keep) node.classList.add("s3-hidden");
+    }
+  });
 }
 
 function applyFirst20Overlay(tableContainer) {
@@ -182,6 +297,7 @@ function convertToActiveUnit(value, config) {
 }
 let eitPanelOpen = false;
 let lockLegendInteractions = false;
+let _numericApplyToken = 0;
 
 function normalizeCategoryLabel(category) {
   return normalizeCategoryClass(String(category || "Unknown")
@@ -682,19 +798,44 @@ function applyNumericEIT(config) {
     });
   }
 
-  const rows = eitRegistry.map((entry) => ({
+  const coarsePointer = typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(pointer: coarse)").matches;
+
+  // iPad/mobile fast path: avoid allocations and O(n log n) sorting.
+  let min = Infinity;
+  let max = -Infinity;
+  let numericCount = 0;
+  if (coarsePointer) {
+    for (let i = 0, len = eitRegistry.length; i < len; i++) {
+      const v = eitRegistry[i]?.metrics?.[config.key];
+      if (!Number.isFinite(v)) continue;
+      numericCount++;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+
+  const rows = coarsePointer ? null : eitRegistry.map((entry) => ({
     entry,
     value: entry.metrics[config.key],
   }));
-  const numericValues = rows
-    .map((row) => row.value)
-    .filter((value) => Number.isFinite(value))
-    .sort((a, b) => a - b);
+  const numericValues = coarsePointer
+    ? null
+    : rows
+      .map((row) => row.value)
+      .filter((value) => Number.isFinite(value))
+      .sort((a, b) => a - b);
 
-  if (!numericValues.length) {
-    rows.forEach(({ entry }) => {
-      entry.cell.classList.add("eit-no-data", "eit-dimmed");
-    });
+  const hasAnyNumeric = coarsePointer ? (numericCount > 0) : (numericValues.length > 0);
+  if (!hasAnyNumeric) {
+    // Mark all cells as no-data quickly
+    for (let i = 0, len = eitRegistry.length; i < len; i++) {
+      const cell = eitRegistry[i]?.cell;
+      if (!cell) continue;
+      cell.classList.add("eit-no-data", "eit-dimmed");
+      cell.classList.remove("eit-colored", "eit-focus", "eit-out-range");
+    }
     eitUI.sliderSection.hidden = true;
     setPropertyNote(t("eit.noUsableData"));
     updateEITLegend({
@@ -708,47 +849,83 @@ function applyNumericEIT(config) {
     return;
   }
 
-  const min = numericValues[0];
-  const max = numericValues[numericValues.length - 1];
+  if (!coarsePointer) {
+    min = numericValues[0];
+    max = numericValues[numericValues.length - 1];
+    numericCount = numericValues.length;
+  }
   const selected = getStoredNumericRange(config.key, min, max);
   eitState.numericRanges.set(config.key, selected);
   syncNumericSlider(config, { min, max }, selected);
   setPropertyNote(
     `${t("eit.selectedWindowPrefix")} ${formatEITValue(selected.min, config, true)} → ${formatEITValue(selected.max, config, true)}`,
   );
-  let inRangeCount = 0;
   const isFilter = eitState.mode === "filter";
 
-  // Single pass: compute and apply state for each cell using toggle
-  rows.forEach(({ entry, value }) => {
-    const cl = entry.cell.classList;
-    const hasData = Number.isFinite(value);
-    const inRange = hasData && value >= selected.min && value <= selected.max;
-
-    if (hasData) {
-      const ratio = getNumericRatio(value, min, max);
-      // Only set color property (avoid redundant style writes)
-      entry.cell.style.setProperty("--eit-cell-color", getColorForRatio(ratio));
-    }
-
-    if (inRange) inRangeCount += 1;
-
-    // Toggle classes in one batch — no clear required
-    cl.toggle("eit-colored", hasData);
-    cl.toggle("eit-no-data", !hasData);
-    cl.toggle("eit-dimmed", !hasData || (isFilter && !inRange));
-    cl.toggle("eit-focus", inRange);
-    cl.toggle("eit-out-range", hasData && !inRange && !isFilter);
-  });
-
+  // iPad/mobile: batch DOM writes to avoid freezing the UI.
+  const token = ++_numericApplyToken;
+  const legendTitle = getPropertyLabel(config);
   updateEITLegend({
     visible: true,
-    title: getPropertyLabel(config),
-    note: `${inRangeCount}/${numericValues.length} ${t("eit.inSelectedRange")}`,
+    title: legendTitle,
+    note: coarsePointer ? t("eit.loading") : `${numericCount} ${t("eit.inSelectedRange")}`,
     min: formatEITValue(selected.min, config, true),
     mid: t("eit.selected"),
     max: formatEITValue(selected.max, config, true),
   });
+
+  let inRangeCount = 0;
+  // Smaller batches on iPad to keep input responsive.
+  const batchSize = coarsePointer ? 4 : eitRegistry.length;
+  const len = eitRegistry.length;
+
+  const applyBatch = (start) => {
+    if (token !== _numericApplyToken) return; // cancelled by new apply
+    const end = Math.min(start + batchSize, len);
+    for (let i = start; i < end; i++) {
+      const entry = eitRegistry[i];
+      if (!entry || !entry.cell) continue;
+      const value = entry.metrics[config.key];
+      const cl = entry.cell.classList;
+      const hasData = Number.isFinite(value);
+      const inRange = hasData && value >= selected.min && value <= selected.max;
+
+      // iPad: avoid style writes for cells that will be fully dimmed in filter mode.
+      if (hasData && !(isFilter && !inRange)) {
+        const ratio = getNumericRatio(value, min, max);
+        entry.cell.style.setProperty("--eit-cell-color", getColorForRatio(ratio));
+      }
+
+      if (inRange) inRangeCount += 1;
+
+      cl.toggle("eit-colored", hasData);
+      cl.toggle("eit-no-data", !hasData);
+      cl.toggle("eit-dimmed", !hasData || (isFilter && !inRange));
+      cl.toggle("eit-focus", inRange);
+      cl.toggle("eit-out-range", hasData && !inRange && !isFilter);
+    }
+
+    if (end < len) {
+      requestAnimationFrame(() => applyBatch(end));
+      return;
+    }
+
+    // Final legend note when finished applying.
+    updateEITLegend({
+      visible: true,
+      title: legendTitle,
+      note: `${inRangeCount}/${numericCount} ${t("eit.inSelectedRange")}`,
+      min: formatEITValue(selected.min, config, true),
+      mid: t("eit.selected"),
+      max: formatEITValue(selected.max, config, true),
+    });
+  };
+
+  if (coarsePointer) {
+    requestAnimationFrame(() => applyBatch(0));
+  } else {
+    applyBatch(0);
+  }
 }
 
 function applyEIT(tableContainer) {
@@ -849,6 +1026,7 @@ function ensureEITController(tableContainer) {
       <button type="button" class="eit-reset-btn" id="eit-reset-btn">${t("eit.reset")}</button>
       <button type="button" class="eit-reset-btn" id="eit-first20-btn" aria-pressed="false">${t("eit.first20")}</button>
       <button type="button" class="eit-reset-btn" id="eit-style-toggle-btn" aria-pressed="false">${t("eit.style.electrons")}</button>
+      <button type="button" class="eit-reset-btn" id="eit-s3mode-btn" aria-pressed="false">S3 mode</button>
       <div class="eit-property-panel" id="eit-property-panel">
         <div class="eit-property-chips" id="eit-property-chips">
           ${chipsHTML}
@@ -890,6 +1068,7 @@ function ensureEITController(tableContainer) {
     resetButton: root.querySelector("#eit-reset-btn"),
     first20Button: root.querySelector("#eit-first20-btn"),
     styleToggleButton: root.querySelector("#eit-style-toggle-btn"),
+    s3ModeButton: root.querySelector("#eit-s3mode-btn"),
     closeButton: root.querySelector("#eit-panel-close"),
     legend: root.querySelector("#eit-legend"),
     legendTitle: root.querySelector("#eit-legend-title"),
@@ -928,6 +1107,16 @@ function ensureEITController(tableContainer) {
     root.dataset.styleToggleBound = "true";
   }
 
+  if (root.dataset.bound === "true" && eitUI.s3ModeButton && root.dataset.s3ModeBound !== "true") {
+    eitUI.s3ModeButton.addEventListener("click", () => {
+      s3ModeActive = !s3ModeActive;
+      eitUI.s3ModeButton?.setAttribute("aria-pressed", s3ModeActive ? "true" : "false");
+      applyS3Mode(tableContainer);
+      if (s3ModeActive) setEITPanelOpen(false);
+    });
+    root.dataset.s3ModeBound = "true";
+  }
+
   // Populate hidden select (backwards compat)
   eitUI.propertySelect.innerHTML = "";
   EIT_PROPERTY_CONFIG.forEach((config) => {
@@ -939,18 +1128,39 @@ function ensureEITController(tableContainer) {
   });
 
   if (!root.dataset.bound) {
+    // iPad Safari sometimes fails to deliver reliable "click" events for UI inside
+    // transformed/overlaid layouts. Bind a touch-friendly pointer handler as backup.
+    const bindTap = (el, handler) => {
+      if (!el) return;
+      let lastTouchUpAt = 0;
+      el.addEventListener("click", (e) => {
+        if (lastTouchUpAt && (performance.now() - lastTouchUpAt) < 650) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        e.stopPropagation();
+        handler(e);
+      });
+      el.addEventListener("pointerup", (e) => {
+        if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+        if (window._uniplusIsDragging) return;
+        e.preventDefault();
+        e.stopPropagation();
+        lastTouchUpAt = performance.now();
+        handler(e);
+      }, { passive: false });
+    };
+
     // Trigger toggles dropdown
-    eitUI.propertyTrigger.addEventListener("click", (event) => {
-      event.stopPropagation();
-      setEITPanelOpen(!eitPanelOpen);
-    });
+    bindTap(eitUI.propertyTrigger, () => setEITPanelOpen(!eitPanelOpen));
     // Prevent clicks inside panel from closing it
     eitUI.propertyPanel.addEventListener("click", (event) => {
       event.stopPropagation();
     });
     // Property chips — click active chip to cycle unit, click inactive to switch property
     eitUI.chips.forEach((chip) => {
-      chip.addEventListener("click", () => {
+      bindTap(chip, () => {
         const clickedProperty = chip.dataset.property;
         if (clickedProperty === eitState.property) {
           // Re-clicking active property → cycle unit
@@ -1051,21 +1261,24 @@ function ensureEITController(tableContainer) {
     });
     // Mode buttons
     eitUI.modeButtons.forEach((button) => {
-      button.addEventListener("click", () => {
+      bindTap(button, () => {
         eitState.mode = button.dataset.mode === "filter" ? "filter" : "color";
         applyEIT(tableContainer);
       });
     });
     // Reset
-    eitUI.resetButton.addEventListener("click", () => {
+    bindTap(eitUI.resetButton, () => {
       first20OverlayActive = false;
       applyFirst20Overlay(tableContainer);
+      s3ModeActive = false;
+      eitUI.s3ModeButton?.setAttribute("aria-pressed", "false");
+      applyS3Mode(tableContainer);
       resetEITState();
       applyEIT(tableContainer);
     });
 
     // First 20 toggle
-    eitUI.first20Button?.addEventListener("click", () => {
+    bindTap(eitUI.first20Button, () => {
       first20OverlayActive = !first20OverlayActive;
       eitUI.first20Button?.setAttribute("aria-pressed", first20OverlayActive ? "true" : "false");
       applyFirst20Overlay(tableContainer);
@@ -1073,7 +1286,7 @@ function ensureEITController(tableContainer) {
     root.dataset.first20Bound = "true";
 
     // Table style toggle (symbol + electron arrangement view)
-    eitUI.styleToggleButton?.addEventListener("click", () => {
+    bindTap(eitUI.styleToggleButton, () => {
       tableElectronStyleActive = !tableElectronStyleActive;
       try {
         localStorage.setItem(
@@ -1087,6 +1300,15 @@ function ensureEITController(tableContainer) {
       applyTableStyleClass(tableContainer);
     });
     root.dataset.styleToggleBound = "true";
+
+    // S3 mode toggle
+    bindTap(eitUI.s3ModeButton, () => {
+      s3ModeActive = !s3ModeActive;
+      eitUI.s3ModeButton?.setAttribute("aria-pressed", s3ModeActive ? "true" : "false");
+      applyS3Mode(tableContainer);
+      if (s3ModeActive) setEITPanelOpen(false);
+    });
+    root.dataset.s3ModeBound = "true";
     // Close on outside click
     document.addEventListener("click", (event) => {
       if (!eitUI || !eitUI.root.contains(event.target)) {
@@ -1142,6 +1364,8 @@ function ensureEITController(tableContainer) {
   }
   eitUI?.styleToggleButton?.setAttribute("aria-pressed", tableElectronStyleActive ? "true" : "false");
   applyTableStyleClass(tableContainer);
+  eitUI?.s3ModeButton?.setAttribute("aria-pressed", s3ModeActive ? "true" : "false");
+  applyS3Mode(tableContainer);
   if (typeof window._scalePeriodicTable === "function") {
     requestAnimationFrame(() => {
       window._scalePeriodicTable();

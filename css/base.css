@@ -114,6 +114,25 @@ body {
   box-sizing: border-box;
 }
 
+/* ============================================================
+   S3 Mode (table-only focus):
+   - Hide global nav and let the table take the full screen
+   ============================================================ */
+
+body.s3-mode #main-container {
+  min-width: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100dvh;
+}
+
+body.s3-mode .container {
+  width: 100vw;
+  height: 100dvh;
+  padding: 0;
+  margin: 0;
+}
+
 /* Fix Worksheet Page Padding */
 .worksheet-generator-page {
   padding-top: 40px;

@@ -2485,6 +2485,8 @@
 
 .l3-stat-item.l3-clickable {
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .l3-stat-label {

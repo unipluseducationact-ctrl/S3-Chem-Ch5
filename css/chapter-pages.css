@@ -87,6 +87,67 @@
   text-align: center;
 }
 
+/* Summary: infographic + language-specific subtopic strips */
+.summary-infographic-card {
+  margin: 0;
+  border-radius: 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-color, #fff);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.summary-infographic-media {
+  width: 100%;
+  background: #f8fafc;
+}
+
+.summary-infographic-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.summary-infographic-actions {
+  padding: 0.6rem 0.85rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--element-bg, #f8fafc);
+}
+
+.summary-infographic-link {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-highlight, #6366f1);
+  text-decoration: none;
+}
+
+.summary-infographic-link:hover {
+  text-decoration: underline;
+}
+
+.summary-subtopic-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.summary-lang {
+  display: none;
+}
+
+html[lang="en"] .summary-lang--en {
+  display: block;
+}
+
+html[lang="zh-Hant"] .summary-lang--zh-hant {
+  display: block;
+}
+
+/* Treat Simplified Chinese as showing the Traditional set for now */
+html[lang="zh"] .summary-lang--zh-hant {
+  display: block;
+}
+
 /* Notes: full-width row so PDF previews span the viewport (not a narrow reading column) */
 .chapter-scroll.chapter-scroll--notes {
   max-width: none;

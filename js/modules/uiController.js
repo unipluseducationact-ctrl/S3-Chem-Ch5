@@ -1169,6 +1169,27 @@ export function buildPeriodicTable(tableContainer) {
     tableContainer.appendChild(cell);
   }
 
+  const bindTouchActivate = (el, handler) => {
+    if (!el) return;
+    let lastTouchUpAt = 0;
+    // Dedupe: iPad Safari may fire a delayed click after pointerup.
+    el.addEventListener("click", (e) => {
+      if (lastTouchUpAt && (performance.now() - lastTouchUpAt) < 650) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }, { capture: true });
+    el.addEventListener("pointerup", (e) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      if (window._uniplusIsDragging) return;
+      e.preventDefault();
+      e.stopPropagation();
+      lastTouchUpAt = performance.now();
+      handler();
+    }, { passive: false });
+  };
+
   const grid = {};
   elements.forEach((element) => {
     if (element.row && element.column) {
@@ -1238,6 +1259,7 @@ export function buildPeriodicTable(tableContainer) {
               : t("tableLegend.toggleActinide"),
           );
           cell.addEventListener("click", toggleRangeHighlight);
+          bindTouchActivate(cell, toggleRangeHighlight);
           bindKeyboardActivation(cell, toggleRangeHighlight);
         } else {
           const openElementModal = () => showModal(element);
@@ -1246,6 +1268,7 @@ export function buildPeriodicTable(tableContainer) {
             `${localizeElementName(element)} (${element.symbol}), atomic number ${element.number}`,
           );
           cell.addEventListener("click", openElementModal);
+          bindTouchActivate(cell, openElementModal);
           bindKeyboardActivation(cell, openElementModal);
           eitController.registerEITElementCell(cell, element);
 
@@ -1306,6 +1329,7 @@ export function buildPeriodicTable(tableContainer) {
           `;
     const openElementModal = () => showModal(element);
     cell.addEventListener("click", openElementModal);
+    bindTouchActivate(cell, openElementModal);
     bindKeyboardActivation(cell, openElementModal);
     eitController.registerEITElementCell(cell, element);
 
@@ -1356,6 +1380,7 @@ export function buildPeriodicTable(tableContainer) {
           `;
     const openElementModal = () => showModal(element);
     cell.addEventListener("click", openElementModal);
+    bindTouchActivate(cell, openElementModal);
     bindKeyboardActivation(cell, openElementModal);
     eitController.registerEITElementCell(cell, element);
 
@@ -1784,6 +1809,33 @@ function setupL3UnitConversion(blueCard, rawData, extData) {
       newItem.style.transform = "scale(0.95)";
       setTimeout(() => { newItem.style.transform = "scale(1)"; }, 150);
     });
+
+    // iPad Safari: make the whole stat tile reliably tappable
+    newItem.addEventListener("pointerup", (e) => {
+      if (e.pointerType !== "touch" && e.pointerType !== "pen") return;
+      if (window._uniplusIsDragging) return;
+      e.preventDefault();
+      e.stopPropagation();
+      // Dedupe delayed click on iPad Safari
+      newItem._lastTouchUpAt = performance.now();
+      const m = newItem._l3Metric;
+      const c = L3_UNIT_CONFIGS[m];
+      if (!c) return;
+      l3UnitState[m] = (l3UnitState[m] + 1) % c.units.length;
+      saveUnits();
+      triggerRender(newItem, l3UnitState[m]);
+      newItem.style.transition = "transform 0.15s ease";
+      newItem.style.transform = "scale(0.95)";
+      setTimeout(() => { newItem.style.transform = "scale(1)"; }, 150);
+    }, { passive: false });
+
+    newItem.addEventListener("click", (e) => {
+      if (newItem._lastTouchUpAt && (performance.now() - newItem._lastTouchUpAt) < 650) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }, { capture: true });
   });
 }
 

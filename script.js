@@ -51,14 +51,24 @@ window._uniplusIsDragging = false;
 (function initGlobalDragTracking() {
   let pointerDown = false;
   let startX = 0, startY = 0;
+  let skipDragDetectionForThisPointer = false;
   const DRAG_THRESHOLD = 5;
   document.addEventListener('pointerdown', (e) => {
     pointerDown = true;
     startX = e.clientX;
     startY = e.clientY;
+    // iPad Safari: slight finger jitter can exceed DRAG_THRESHOLD and wrongly suppress taps.
+    // For key UI controls, never classify the gesture as a "drag".
+    const t = e.target;
+    skipDragDetectionForThisPointer = !!(
+      t &&
+      typeof t.closest === "function" &&
+      t.closest("#eit-controller, .eit-property-panel, .eit-chip, .eit-reset-btn, .eit-mode-btn, .eit-property-trigger, .l3-stat-item.l3-clickable")
+    );
   }, true);
   document.addEventListener('pointermove', (e) => {
     if (!pointerDown) return;
+    if (skipDragDetectionForThisPointer) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
     if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
@@ -67,15 +77,19 @@ window._uniplusIsDragging = false;
   }, true);
   document.addEventListener('pointerup', () => {
     pointerDown = false;
+    skipDragDetectionForThisPointer = false;
     // Delay clearing drag state so click handlers see it
-    setTimeout(() => { window._uniplusIsDragging = false; }, 80);
+    // For key UI controls (EIT + stat tiles), clear immediately so taps feel instant on iPad.
+    setTimeout(() => { window._uniplusIsDragging = false; }, 10);
   }, true);
   document.addEventListener('pointercancel', () => {
     pointerDown = false;
-    setTimeout(() => { window._uniplusIsDragging = false; }, 80);
+    skipDragDetectionForThisPointer = false;
+    setTimeout(() => { window._uniplusIsDragging = false; }, 10);
   }, true);
   window.addEventListener('blur', () => {
     pointerDown = false;
+    skipDragDetectionForThisPointer = false;
     // Don't close panels on blur
   });
 })();
@@ -171,10 +185,16 @@ function initPeriodicTableScale() {
     if (isScaling) return;
     if (getComputedStyle(container).display === "none") return;
     if (table.children.length === 0) return;
+    // On iPad/iOS, pinch-zoom changes viewport metrics and can trigger resize.
+    // Do not override user zoom by re-scaling the table while visualViewport is zoomed.
+    if (window.visualViewport && typeof window.visualViewport.scale === "number" && window.visualViewport.scale !== 1) {
+      return;
+    }
 
     const scaleSignature = [
       window.innerWidth,
       window.innerHeight,
+      window.visualViewport && typeof window.visualViewport.scale === "number" ? window.visualViewport.scale : 1,
       container.clientWidth,
       container.clientHeight,
       table.childElementCount,
