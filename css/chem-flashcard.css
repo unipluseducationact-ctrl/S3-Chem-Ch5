@@ -448,6 +448,13 @@
       animation: bohrPopIn 0.35s ease forwards;
     }
 
+    .bohr-electron-static {
+      fill: var(--accent);
+      opacity: 1;
+      filter: drop-shadow(0 0 3px rgba(61, 156, 240, 0.55));
+      animation: none;
+    }
+
     @keyframes bohrPopIn {
       to { opacity: 1; }
     }

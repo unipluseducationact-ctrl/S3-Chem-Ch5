@@ -151,11 +151,11 @@ export const zhUI = {
     "keyIsotopes": "主要同位素",
     "stable": "稳定",
     "radioactive": "放射性",
-    "configuration": "电子排布"
+    "configuration": "电子层排布"
   },
   "elementL3": {
     "electronicIdentity": "电子结构",
-    "configuration": "电子排布",
+    "configuration": "电子层排布",
     "oxidationStates": "氧化态",
     "common": "常见",
     "possible": "可能",

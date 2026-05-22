@@ -151,11 +151,11 @@ export const zhHantUI = {
     "keyIsotopes": "主要同位素",
     "stable": "穩定",
     "radioactive": "放射性",
-    "configuration": "電子排布"
+    "configuration": "電子層排佈"
   },
   "elementL3": {
     "electronicIdentity": "電子結構",
-    "configuration": "電子排布",
+    "configuration": "電子層排佈",
     "oxidationStates": "氧化態",
     "common": "常見",
     "possible": "可能",

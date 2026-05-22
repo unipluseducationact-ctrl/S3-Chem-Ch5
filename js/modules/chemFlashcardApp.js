@@ -1,6 +1,10 @@
 // Chemistry flashcards — embedded app, scoped to #flashcards-page
 import { finallyData } from "../data/elementsData.js";
 
+function formatShellElectronsLabel(shells, label = "Shell electrons") {
+  return shells?.length ? `${label}: ${shells.join(", ")}` : "—";
+}
+
 export function initChemFlashcard() {
   if (window.__chemFlashcardInited) return;
   window.__chemFlashcardInited = true;
@@ -12,7 +16,7 @@ export function initChemFlashcard() {
     en: {
       appTitle: "Form 3 Chemistry — Flashcards",
       appSubtitle: "Four sets · First 20 elements · Square cards",
-      deckS1: "Set 1 · Electron configuration & Bohr model",
+      deckS1: "Set 1 · Shell electrons & Bohr model",
       deckS2: "Set 2 · Melting / boiling / density / EN / radius",
       deckS3: "Set 3 · Category, metal type, state @ STP",
       deckS4: "Set 4 · Natural isotopes",
@@ -24,7 +28,7 @@ export function initChemFlashcard() {
       shuffle: "Shuffle",
       kbdHint: "Space flip · ← → navigate",
       nucleus: "Nucleus (+)",
-      filling: "Bohr model — electrons in shells (animation)",
+      filling: "Bohr model — electrons in shells",
       lblMelting: "Melting point",
       lblBoiling: "Boiling point",
       lblDensity: "Density",
@@ -34,14 +38,14 @@ export function initChemFlashcard() {
       lblMetalType: "Metal type",
       lblState: "State @ STP",
       lblShellArr: "Shell electrons",
-      lblConfig: "Electron configuration",
+      lblConfig: "Shell electrons",
       lblIsotopes: "Natural isotopes",
       noneIsotopes: "No isotope data",
     },
     zh: {
       appTitle: "中三化學 — 閃卡",
       appSubtitle: "四套 · 首 20 個元素 · 方形卡",
-      deckS1: "套裝 1 · 電子組態與波爾模型",
+      deckS1: "套裝 1 · 電子層排佈與波爾模型",
       deckS2: "套裝 2 · 熔點、沸點、密度、電負性、原子半徑",
       deckS3: "套裝 3 · 類別、金屬類型、狀態（STP）",
       deckS4: "套裝 4 · 天然同位素",
@@ -53,7 +57,7 @@ export function initChemFlashcard() {
       shuffle: "洗牌",
       kbdHint: "空白鍵翻卡 · ← → 換卡",
       nucleus: "原子核（+）",
-      filling: "波爾模型 — 各層電子（動畫）",
+      filling: "波爾模型 — 各層電子",
       lblMelting: "熔點",
       lblBoiling: "沸點",
       lblDensity: "密度",
@@ -63,7 +67,7 @@ export function initChemFlashcard() {
       lblMetalType: "金屬／非金屬類型",
       lblState: "狀態（STP）",
       lblShellArr: "電子層排佈",
-      lblConfig: "電子組態",
+      lblConfig: "電子層排佈",
       lblIsotopes: "天然同位素",
       noneIsotopes: "無同位素資料",
     },
@@ -153,15 +157,11 @@ export function initChemFlashcard() {
       const fd = finallyData[String(row.z)] || {};
       const basic = fd.level1_basic || {};
       const phy = fd.level3_properties?.physical || {};
-      const elec = fd.level3_properties?.electronic || {};
       const atomic = fd.level2_atomic || {};
       const rawType = String(basic.type || "").trim();
       const mk = metalKindFromType(rawType);
-      const cfgRaw = String(elec.configuration || "").trim();
-      const configuration = cfgRaw || "—";
       return {
         ...row,
-        configuration,
         meltingPoint: physicalString(phy.meltingPoint),
         boilingPoint: physicalString(phy.boilingPoint),
         density: physicalString(phy.density),
@@ -289,8 +289,7 @@ export function initChemFlashcard() {
     svg.setAttribute("class", "bohr-svg");
     svg.setAttribute("aria-hidden", "true");
 
-    let delay = 0;
-    const step = 55;
+    const staticElectrons = opts.static !== false;
 
     shells.forEach((count, si) => {
       const r = startR + si * ringGap;
@@ -323,9 +322,7 @@ export function initChemFlashcard() {
         dot.setAttribute("cx", String(edx));
         dot.setAttribute("cy", String(edy));
         dot.setAttribute("r", String(eR));
-        dot.setAttribute("class", "bohr-electron");
-        dot.style.animationDelay = delay + "ms";
-        delay += step;
+        dot.setAttribute("class", staticElectrons ? "bohr-electron-static" : "bohr-electron");
         svg.appendChild(dot);
       }
 
@@ -369,17 +366,13 @@ export function initChemFlashcard() {
       $("frontSub").textContent = elementName(row);
       $("backMain").innerHTML = "";
       $("backMain").className = "card-main chem-fc-config-main";
-      $("backMain").textContent = row.configuration;
+      $("backMain").textContent = formatShellElectronsLabel(row.shells, t("lblShellArr"));
       $("backSub").textContent = "";
       $("backSub").hidden = true;
       const wrap = document.createElement("div");
       wrap.className = "shell-diagram";
       $("backExtra").appendChild(wrap);
-      renderShellDiagram(wrap, row.shells, index + "-" + i, { firstShellNoPair: true });
-      const foot = document.createElement("div");
-      foot.className = "fc-shell-footnote";
-      foot.textContent = t("lblShellArr") + ": " + row.shells.join(", ");
-      $("backExtra").appendChild(foot);
+      renderShellDiagram(wrap, row.shells, index + "-" + i, { firstShellNoPair: true, static: true });
     } else if (d.type === "properties") {
       $("frontMain").innerHTML = row.notn;
       $("frontSub").hidden = false;

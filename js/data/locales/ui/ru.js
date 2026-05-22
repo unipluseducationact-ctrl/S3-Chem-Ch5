@@ -151,11 +151,11 @@ export const ruUI = {
     "keyIsotopes": "Ключевые изотопы",
     "stable": "Стабильный",
     "radioactive": "Радиоактивный",
-    "configuration": "Конфигурация"
+    "configuration": "Оболочечные электроны"
   },
   "elementL3": {
     "electronicIdentity": "Электронная структура",
-    "configuration": "Конфигурация",
+    "configuration": "Оболочечные электроны",
     "oxidationStates": "Степени окисления",
     "common": "Обычные",
     "possible": "Возможные",

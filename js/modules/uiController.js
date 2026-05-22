@@ -828,6 +828,11 @@ function getElectronArrangementByZ(z) {
   return out;
 }
 
+function formatShellElectronsLabel(shells, label) {
+  const lbl = label ?? t("elementL2.configuration");
+  return shells?.length ? `${lbl}: ${shells.join(", ")}` : "—";
+}
+
 function renderMiniBohr(container, shells) {
   if (!container) return;
   container.innerHTML = "";
@@ -1223,7 +1228,7 @@ export function buildPeriodicTable(tableContainer) {
           cell.classList.add(catClass);
         }
         const shells = getElectronArrangementByZ(element.number);
-        const arrangementText = shells.length ? shells.join(",") : "—";
+        const arrangementText = formatShellElectronsLabel(shells);
         const showGraph = typeof element.number === "number" && element.number <= 20;
         if (showGraph) cell.classList.add("electron-arrangement-has-graph");
         cell.innerHTML = `
@@ -1315,7 +1320,7 @@ export function buildPeriodicTable(tableContainer) {
       cell.classList.add(catClass);
     }
     const shells = getElectronArrangementByZ(element.number);
-    const arrangementText = shells.length ? shells.join(",") : "—";
+    const arrangementText = formatShellElectronsLabel(shells);
     const showGraph = typeof element.number === "number" && element.number <= 20;
     if (showGraph) cell.classList.add("electron-arrangement-has-graph");
     cell.innerHTML = `
@@ -1366,7 +1371,7 @@ export function buildPeriodicTable(tableContainer) {
       cell.classList.add(catClass);
     }
     const shells = getElectronArrangementByZ(element.number);
-    const arrangementText = shells.length ? shells.join(",") : "—";
+    const arrangementText = formatShellElectronsLabel(shells);
     const showGraph = typeof element.number === "number" && element.number <= 20;
     if (showGraph) cell.classList.add("electron-arrangement-has-graph");
     cell.innerHTML = `
@@ -2133,8 +2138,7 @@ function populateSimplifiedView(element) {
     const level2ConfigNode = yellowCard.querySelector("#l2-configuration-value");
     if (level2ConfigNode) {
       const shells = getElectronArrangementByZ(element.number);
-      const arrangement = shells.length ? shells.join(",") : "—";
-      level2ConfigNode.textContent = arrangement;
+      level2ConfigNode.textContent = formatShellElectronsLabel(shells);
     }
 
     const isotopesSection = yellowCard.querySelector(".ions-section");
@@ -2200,7 +2204,7 @@ function populateSimplifiedView(element) {
     const configHero = blueCard.querySelector(".config-hero");
     if (configHero) {
       const shells = getElectronArrangementByZ(element.number);
-      configHero.textContent = shells.length ? shells.join(",") : "—";
+      configHero.textContent = formatShellElectronsLabel(shells);
     }
     const oxidationContainer = blueCard.querySelector(".oxidation-container");
     if (oxidationContainer) {
@@ -2635,7 +2639,7 @@ export function showModal(element) {
   }
   if (modalConfigLarge) {
     const shells = getElectronArrangementByZ(element.number);
-    modalConfigLarge.textContent = shells.length ? shells.join(",") : "—";
+    modalConfigLarge.textContent = formatShellElectronsLabel(shells);
   }
   if (modalDiscovery) modalDiscovery.textContent = element.discovery;
   if (modalEtymology) modalEtymology.textContent = element.etymology;

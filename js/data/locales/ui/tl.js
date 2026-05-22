@@ -151,11 +151,11 @@ export const tlUI = {
     "keyIsotopes": "Pangunahing Isotopes",
     "stable": "Matatag",
     "radioactive": "Radyoaktibo",
-    "configuration": "Ayos ng Electron"
+    "configuration": "Mga elektron sa shell"
   },
   "elementL3": {
     "electronicIdentity": "Pagkakakilanlang Elektroniko",
-    "configuration": "Ayos ng Electron",
+    "configuration": "Mga elektron sa shell",
     "oxidationStates": "Mga Oxidation State",
     "common": "Karaniwan",
     "possible": "Maaaring",

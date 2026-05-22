@@ -12,7 +12,7 @@ export function getSavedAnimationState() {
   const savedSpeed = parseFloat(localStorage.getItem(ANIMATION_SPEED_KEY));
 
   return {
-    paused: localStorage.getItem(ANIMATION_PAUSED_KEY) === "true",
+    paused: localStorage.getItem(ANIMATION_PAUSED_KEY) !== "false",
     speed: Number.isFinite(savedSpeed) ? savedSpeed : DEFAULT_ANIMATION_SPEED,
   };
 }

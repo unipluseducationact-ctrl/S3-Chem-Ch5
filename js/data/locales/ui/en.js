@@ -151,11 +151,11 @@ export const enUI = {
     "keyIsotopes": "Key Isotopes",
     "stable": "Stable",
     "radioactive": "Radioactive",
-    "configuration": "Configuration"
+    "configuration": "Shell electrons"
   },
   "elementL3": {
     "electronicIdentity": "Electronic Identity",
-    "configuration": "Electron Configuration",
+    "configuration": "Shell electrons",
     "oxidationStates": "Oxidation States",
     "common": "Common",
     "possible": "Possible",

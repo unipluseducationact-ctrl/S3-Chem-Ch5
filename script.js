@@ -13,6 +13,7 @@ import { initPageController } from "./js/modules/pageController.js";
 import { initChemFlashcard } from "./js/modules/chemFlashcardApp.js";
 import { createToolsModalController } from "./js/modules/toolsModalController.js";
 import {
+  applyAnimationPauseState,
   getSavedAnimationState,
   initSettingsController,
 } from "./js/modules/settingsController.js";
@@ -103,6 +104,7 @@ window._uniplusIsDragging = false;
 const savedAnimationState = getSavedAnimationState();
 window._uniplusAnimPaused = savedAnimationState.paused;
 window._uniplusAnimSpeed = savedAnimationState.speed;
+applyAnimationPauseState(window._uniplusAnimPaused);
 
 // ========================================
 // Lazy module loaders (performance)
