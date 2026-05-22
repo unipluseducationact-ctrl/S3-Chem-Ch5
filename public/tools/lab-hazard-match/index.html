@@ -203,6 +203,7 @@
     background: var(--card-back);
     transform: rotateY(180deg);
     flex-direction: column;
+    align-items: stretch;
     gap: 4px;
     color: var(--ink);
   }
@@ -226,6 +227,15 @@
     padding: 18px 6px 10px;
     width: 100%;
   }
+  .card-content:has(.card-picture) {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 6px 8px;
+  }
   .label-bilingual {
     display: flex;
     flex-direction: column;
@@ -239,25 +249,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    flex: 1 1 0;
     min-height: 0;
-    padding: 10px 4px 6px;
+    width: 100%;
+    padding: 4px 2px;
+    background: var(--card-back);
   }
-  .gw-img {
-    width: min(72%, 130px);
-    height: auto;
-    max-height: 82%;
-    display: block;
-    object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
-  }
+  .gw-img,
   .hazard-img {
-    width: min(72%, 130px);
-    height: auto;
-    max-height: 82%;
     display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
+    object-position: center;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
   }
   .hazard-mini-img { width: 52px; height: auto; max-height: none; flex-shrink: 0; object-fit: contain; }
@@ -305,17 +311,6 @@
   }
   .card.card-hazard .face.back { padding-top: 4px; }
   .card.card-hazard-pic .card-picture { padding: 6px 2px 2px; }
-  .toast.toast-hazard { display: flex; flex-direction: column; gap: 6px; }
-  .toast-hazard-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .toast-hazard-head .hazard-mini-img { width: 44px; }
-  .toast-hazard-head h4 { margin: 0; flex: 1; font-size: 14px; line-height: 1.3; }
-  .toast.toast-hue-yellow { border-left-color: #e6b800; }
-  .toast.toast-hue-red { border-left-color: #c62828; }
-  .toast.toast-hue-white { border-left-color: #757575; }
   .guide-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -360,32 +355,6 @@
     75% { transform: rotateY(180deg) translateX(6px); }
   }
 
-  .toast-wrap {
-    position: fixed;
-    top: 16px; left: 50%;
-    transform: translateX(-50%);
-    z-index: 50;
-    display: flex; flex-direction: column; gap: 8px;
-    pointer-events: none;
-  }
-  .toast {
-    pointer-events: auto;
-    min-width: 280px;
-    max-width: 480px;
-    padding: 12px 14px;
-    background: var(--panel);
-    border: 1px solid var(--card-border);
-    border-left: 4px solid var(--accent-2);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    animation: toastIn 0.25s ease;
-  }
-  .toast.warn { border-left-color: var(--warn); }
-  .toast.bad  { border-left-color: var(--bad); }
-  .toast h4 { margin: 0 0 4px; font-size: 14px; }
-  .toast .body { font-size: 13px; color: var(--muted); line-height: 1.45; }
-  @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-
   .modal-backdrop {
     position: fixed; inset: 0;
     background: rgba(15, 18, 36, 0.55);
@@ -423,6 +392,92 @@
   .badge.sep { background: var(--warn); }
   .badge.haz { background: var(--bad); }
 
+  .summary {
+    margin-top: 18px;
+    padding: 18px 16px 20px;
+    scroll-margin-top: 16px;
+  }
+  .summary-head {
+    margin-bottom: 16px;
+  }
+  .summary-head h2 {
+    margin: 0 0 6px;
+    font-size: 17px;
+  }
+  .summary-head p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .summary-group {
+    margin-bottom: 20px;
+  }
+  .summary-group:last-child { margin-bottom: 0; }
+  .summary-group h3 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .summary-card {
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 12px;
+    background: var(--card-back);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .summary-card-media {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    padding: 8px 4px;
+    background: var(--card-back);
+    overflow: visible;
+  }
+  .summary-thumb {
+    width: auto;
+    height: auto;
+    max-width: 140px;
+    max-height: 200px;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12));
+  }
+  .summary-card .label-bilingual { align-items: flex-start; }
+  .summary-card .label-en { font-size: 15px; }
+  .summary-card .label-zh { font-size: 13px; }
+  .summary-notes {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin: 0;
+  }
+  .summary-notes-zh {
+    margin-top: 4px;
+    opacity: 0.95;
+  }
+  .summary-card.summary-hazard {
+    border-top: 3px solid var(--card-border);
+  }
+  .summary-card.summary-hazard[data-hue="yellow"] { border-top-color: #e6b800; }
+  .summary-card.summary-hazard[data-hue="red"] { border-top-color: #c62828; }
+  .summary-card.summary-hazard[data-hue="white"] { border-top-color: #9e9e9e; }
+  .summary-card .hazard-label-card { width: 100%; }
+  .summary-card .hazard-example { display: block; }
+
   footer.foot {
     margin-top: 18px;
     text-align: center;
@@ -454,6 +509,7 @@
     </div>
     <div class="top-actions">
       <button id="btn-help" class="ghost" title="How to play">How to play</button>
+      <button id="btn-ref" class="ghost" title="Jump to reference summary">Reference</button>
       <button id="btn-guide" class="ghost" title="All hazard symbols">Symbol guide</button>
       <button id="btn-theme" class="ghost" title="Toggle theme">Theme</button>
     </div>
@@ -493,12 +549,19 @@
 
   <div id="board" aria-label="Game board"></div>
 
+  <section id="summary" class="panel summary" aria-label="Apparatus and hazard reference">
+    <header class="summary-head">
+      <h2>Reference summary / 參考摘要</h2>
+      <p>Full bilingual notes for all fourteen laboratory apparatus and seven OSHC hazard labels — use for DSE practical language revision.</p>
+    </header>
+    <div id="summary-glassware"></div>
+    <div id="summary-hazards"></div>
+  </section>
+
   <footer class="foot">
     HKDSE lab revision: fourteen laboratory apparatus images plus seven OSHC «化學品標籤» hazard labels. On real chemicals follow the container label and your school rules.
   </footer>
 </div>
-
-<div class="toast-wrap" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
 <div class="modal-backdrop" id="modal-help">
   <div class="modal" role="dialog" aria-labelledby="help-title">
@@ -511,7 +574,7 @@
       <li><span class="badge haz">危險</span><strong>Hazard (OSHC poster)</strong> — seven classes: 爆炸性、助燃、易燃、腐蝕性、刺激性、有毒、有害. Label cards show a <strong>colour band</strong>, a <strong>mini label image</strong>, and a <strong>recognition hint</strong>. Picture cards show the full poster label. Use <strong>Symbol guide</strong> before you play.</li>
       <li><strong>Mixed</strong> shuffles <strong>glassware + hazard</strong> pairs together for a longer deck.</li>
       <li><strong>Hint (+5)</strong> briefly highlights one full pair still face-down; it adds 5 to your move count.</li>
-      <li>After each correct match, read the <strong>bilingual note</strong> — that is the learning moment for DSE practical language.</li>
+      <li>Scroll to the <strong>Reference summary</strong> below the board (or click <strong>Reference</strong> in the header) for full <strong>bilingual notes</strong> on every apparatus and hazard label.</li>
     </ul>
     <div class="actions">
       <button class="primary" id="btn-help-close">Got it</button>
@@ -658,9 +721,23 @@ const GLASSWARE = [
   }
 ];
 
+function attachThumbPaths(list) {
+  for (const e of list) {
+    e.thumb = e.image.replace(/^(assets\/(?:apparatus|hazards))\//, "$1/thumbs/");
+  }
+}
+attachThumbPaths(GLASSWARE);
+
+function imgOnErrorAttr() {
+  return ' onerror="if(this.dataset.full&amp;&amp;this.src!==this.dataset.full)this.src=this.dataset.full"';
+}
+
 function glasswareImg(entry, className = "gw-img") {
   const alt = `${entry.nameEn} / ${entry.nameZh}`;
-  return `<img class="${className}" src="${escHTML(entry.image)}" alt="${escHTML(alt)}" loading="lazy" decoding="async"/>`;
+  const src = entry.thumb || entry.image;
+  const full = escHTML(entry.image);
+  const thumb = escHTML(src);
+  return `<img class="${className}" src="${thumb}" data-full="${full}" data-thumb="${thumb}" alt="${escHTML(alt)}" loading="eager"${imgOnErrorAttr()}/>`;
 }
 
 //#region Hazard labels (OSHC poster — PNG labels + recognition cues)
@@ -730,11 +807,16 @@ const HAZARD_LABELS = [
   }
 ];
 
+attachThumbPaths(HAZARD_LABELS);
+
 function isHazardEntry(e) { return e && e.tag === "hazard"; }
 
 function hazardImg(entry, className = "hazard-img") {
   const alt = `${entry.nameEn} / ${entry.nameZh}`;
-  return `<img class="${className}" src="${escHTML(entry.image)}" alt="${escHTML(alt)}" loading="lazy" decoding="async"/>`;
+  const src = entry.thumb || entry.image;
+  const full = escHTML(entry.image);
+  const thumb = escHTML(src);
+  return `<img class="${className}" src="${thumb}" data-full="${full}" data-thumb="${thumb}" alt="${escHTML(alt)}" loading="eager"${imgOnErrorAttr()}/>`;
 }
 
 function renderHazardLabel(entry) {
@@ -776,6 +858,29 @@ function fmtTime(sec) {
   const m = Math.floor(sec / 60).toString().padStart(2, "0");
   const s = (sec % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
+}
+
+const preloadedUrls = new Set();
+function preloadImages(urls) {
+  for (const url of urls) {
+    if (!url || preloadedUrls.has(url)) continue;
+    preloadedUrls.add(url);
+    const im = new Image();
+    im.src = url;
+  }
+}
+function preloadAllThumbs() {
+  preloadImages([
+    ...GLASSWARE.map(g => g.thumb),
+    ...HAZARD_LABELS.map(h => h.thumb)
+  ]);
+}
+function preloadGameImages(cards) {
+  const urls = [];
+  for (const c of cards) {
+    if (c.kind === "picture" && c.entry.thumb) urls.push(c.entry.thumb);
+  }
+  preloadImages(urls);
 }
 //#endregion
 
@@ -819,7 +924,7 @@ const winBody = $("#win-body");
 const btnWinAgain = $("#btn-win-again");
 const btnWinClose = $("#btn-win-close");
 const btnTheme = $("#btn-theme");
-const toasts = $("#toasts");
+const btnRef = $("#btn-ref");
 //#endregion
 
 //#region Best score (localStorage)
@@ -895,6 +1000,7 @@ function newGame() {
     cards.push({ id: `p${pairId}`, pairId, kind: "picture", entry: e, flipped: false, matched: false });
   }
   state.cards = shuffle(cards);
+  preloadGameImages(state.cards);
 
   board.style.setProperty("--cols", cfg.cols);
   renderBoard();
@@ -983,7 +1089,6 @@ function onCardClick(id) {
     setTimeout(() => {
       getCardEl(a.id).classList.add("matched");
       getCardEl(b.id).classList.add("matched");
-      showLearnToast(a.entry);
       updateHud();
       if (state.matches === state.totalPairs) onWin();
     }, 250);
@@ -1069,29 +1174,64 @@ function useHint() {
 }
 //#endregion
 
-//#region Toasts
-function showLearnToast(entry) {
-  const t = document.createElement("div");
-  if (isHazardEntry(entry)) {
-    t.className = `toast toast-hazard toast-hue-${entry.hue}`;
-    const sym = hazardImg(entry, "hazard-img hazard-mini-img");
-    t.innerHTML = `
-      <div class="toast-hazard-head">${sym}<h4>${escHTML(entry.nameEn)} / ${escHTML(entry.nameZh)}</h4></div>
-      <div class="hazard-keyword" style="margin:0">${escHTML(entry.keywordEn)} · ${escHTML(entry.keywordZh)}</div>
-      <div class="body">${escHTML(entry.noteEn)}<br/>${escHTML(entry.noteZh)}<br/><em>${escHTML(entry.exampleEn)} / ${escHTML(entry.exampleZh)}</em></div>`;
-    setTimeout(removeToast, 5500);
-  } else {
-    t.className = "toast";
-    const heading = `${escHTML(entry.nameEn)} / ${escHTML(entry.nameZh)}`;
-    const body = `${escHTML(entry.noteEn)}<br/><span style="opacity:0.95">${escHTML(entry.noteZh)}</span>`;
-    t.innerHTML = `<h4>${heading}</h4><div class="body">${body}</div>`;
-    setTimeout(removeToast, 4200);
-  }
-  function removeToast() { if (t.parentNode) t.parentNode.removeChild(t); }
-  toasts.appendChild(t);
-  t.addEventListener("click", removeToast);
+//#region Reference summary
+const GLASSWARE_GROUP_ORDER = [
+  { tag: "measurement", title: "量度 / Measurement", badge: '<span class="badge">量度</span>' },
+  { tag: "container", title: "容器與反應 / Containers &amp; reaction", badge: '<span class="badge cont">容器</span>' },
+  { tag: "separation", title: "分離與其他 / Separation", badge: '<span class="badge sep">分離</span>' }
+];
+
+function renderSummaryGlasswareCard(entry) {
+  const badge = entry.tag === "measurement" ? '<span class="badge">量度</span>'
+    : entry.tag === "container" ? '<span class="badge cont">容器</span>'
+    : '<span class="badge sep">分離</span>';
+  return `<article class="summary-card">
+    <div class="summary-card-media">${glasswareImg(entry, "summary-thumb")}</div>
+    <div class="label-bilingual">
+      <span class="label-en">${escHTML(entry.nameEn)}</span>
+      <span class="label-zh">${escHTML(entry.nameZh)}</span>
+    </div>
+    ${badge}
+    <p class="summary-notes">${escHTML(entry.noteEn)}<span class="summary-notes-zh"><br/>${escHTML(entry.noteZh)}</span></p>
+  </article>`;
 }
 
+function renderSummaryHazardCard(entry) {
+  return `<article class="summary-card summary-hazard" data-hue="${escHTML(entry.hue)}">
+    ${renderHazardLabel(entry)}
+    <p class="summary-notes">${escHTML(entry.noteEn)}<span class="summary-notes-zh"><br/>${escHTML(entry.noteZh)}</span></p>
+  </article>`;
+}
+
+function renderSummary() {
+  const gwEl = $("#summary-glassware");
+  const hazEl = $("#summary-hazards");
+  if (!gwEl || !hazEl) return;
+
+  gwEl.innerHTML = GLASSWARE_GROUP_ORDER.map(group => {
+    const items = GLASSWARE
+      .filter(g => g.tag === group.tag)
+      .sort((a, b) => a.nameEn.localeCompare(b.nameEn));
+    if (!items.length) return "";
+    const cards = items.map(renderSummaryGlasswareCard).join("");
+    return `<div class="summary-group">
+      <h3>${group.badge} ${group.title}</h3>
+      <div class="summary-grid">${cards}</div>
+    </div>`;
+  }).join("");
+
+  const hazardCards = [...HAZARD_LABELS]
+    .sort((a, b) => a.nameEn.localeCompare(b.nameEn))
+    .map(renderSummaryHazardCard)
+    .join("");
+  hazEl.innerHTML = `<div class="summary-group">
+    <h3><span class="badge haz">危險</span> 危險標示 / Hazard (OSHC poster)</h3>
+    <div class="summary-grid">${hazardCards}</div>
+  </div>`;
+}
+//#endregion
+
+//#region Hazard guide modal
 function fillGuideGrid() {
   const grid = $("#guide-grid");
   if (!grid) return;
@@ -1139,6 +1279,10 @@ btnTheme.addEventListener("click", () => {
 btnNew.addEventListener("click", newGame);
 btnHint.addEventListener("click", useHint);
 btnHelp.addEventListener("click", () => openModal(modalHelp));
+if (btnRef) btnRef.addEventListener("click", () => {
+  const el = $("#summary");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 btnHelpClose.addEventListener("click", () => closeModal(modalHelp));
 const btnGuide = $("#btn-guide");
 const btnGuideClose = $("#btn-guide-close");
@@ -1157,6 +1301,8 @@ document.addEventListener("keydown", e => {
 });
 
 initTheme();
+preloadAllThumbs();
+renderSummary();
 newGame();
 //#endregion
 </script>
