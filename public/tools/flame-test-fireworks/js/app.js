@@ -1,17 +1,23 @@
 /* Main application wiring */
 (function () {
+  const DEFAULT_SCENE_ID = 'city-skyline-3';
+
   const I18N = {
     subtitle:
       '\u7130\u8272\u8A66\u9A57\u7159\u706B\u5DE5\u574A \u2014 Design your pattern with metal ions, then launch',
     editorTitle: 'Pattern Designer \u5716\u6848\u8A2D\u8A08\u5340',
     editorHint:
-      'Circle burst grid. Click or drag to paint; right-click to erase. Use templates for quick shapes. \u5713\u5F62\u7DE6\u683C\uFF1B\u9EDE\u64CA\u6216\u62D6\u66F2\u7E6A\u88FD\uFF1B\u53F3\u9375\u6E05\u9664\uFF1B\u53EF\u7528\u6A21\u677F\u5FEB\u901F\u7E6A\u5716\u3002',
+      'Click or drag to paint \u00B7 right-click to erase \u00B7 templates fill rings quickly',
     skyTitle: 'Night Sky Display \u591C\u7A7A\u8868\u6F14\u5340',
     sceneTitle: 'Background Scene \u80CC\u666F\u5834\u666F',
-    launch: 'Launch Firework \u767C\u5C04\u7159\u706B',
-    replay: 'Replay \u91CD\u64AD',
-    reset: 'Reset Sky \u91CD\u8A2D\u591C\u7A7A',
-    download: 'Download Picture \u4E0B\u8F09\u5716\u7247',
+    launch: 'Launch',
+    launchZh: '\u767C\u5C04\u7159\u706B',
+    replay: 'Replay',
+    replayZh: '\u91CD\u64AD',
+    reset: 'Reset',
+    resetZh: '\u91CD\u8A2D',
+    download: 'Download',
+    downloadZh: '\u4E0B\u8F09',
     downloadHint:
       'Available after a launch finishes. \u767C\u5C04\u7D50\u675F\u5F8C\u53EF\u4E0B\u8F09\u5408\u6210\u5716\u7247\u3002',
     paletteTitle: 'Metal Ion Palette \u91D1\u5C6C\u96E2\u5B50\u8ABF\u8272\u677F',
@@ -24,10 +30,23 @@
 
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
-    if (I18N[key]) {
-      if (el.tagName === 'BUTTON' || el.tagName === 'H2' || el.tagName === 'P' || el.tagName === 'TH') {
+    if (!I18N[key]) return;
+    const zhKey = `${key}Zh`;
+    if (el.tagName === 'BUTTON' && I18N[zhKey]) {
+      el.innerHTML = `<span class="btn-label">${I18N[key]}</span><span class="btn-label-zh">${I18N[zhKey]}</span>`;
+      return;
+    }
+    if (el.tagName === 'H2') {
+      const parts = I18N[key].split(/\s+(?=[\u4e00-\u9fff])/);
+      if (parts.length >= 2) {
+        el.innerHTML = `<span class="title-en">${parts[0]}</span><span class="title-zh">${parts.slice(1).join(' ')}</span>`;
+      } else {
         el.textContent = I18N[key];
       }
+      return;
+    }
+    if (el.tagName === 'BUTTON' || el.tagName === 'P' || el.tagName === 'TH') {
+      el.textContent = I18N[key];
     }
   });
   document.title = 'HKDSE Flame Test Fireworks | \u7130\u8272\u8A66\u9A57\u7159\u706B\u5DE5\u574A';
@@ -50,12 +69,13 @@
 
   function buildScenePicker() {
     scenePicker.innerHTML = '';
-    BACKGROUND_SCENES.forEach((scene, index) => {
+    BACKGROUND_SCENES.forEach((scene) => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'scene-option' + (index === 0 ? ' active' : '');
+      const isDefault = scene.id === DEFAULT_SCENE_ID;
+      btn.className = 'scene-option' + (isDefault ? ' active' : '');
       btn.setAttribute('role', 'radio');
-      btn.setAttribute('aria-checked', index === 0 ? 'true' : 'false');
+      btn.setAttribute('aria-checked', isDefault ? 'true' : 'false');
       btn.dataset.sceneId = scene.id;
       btn.title = `${scene.labelEn} ${scene.labelZh}`;
       btn.innerHTML = `<img src="${scene.src}" alt="${scene.labelEn}" width="72" height="48" loading="lazy" />`;
@@ -88,9 +108,10 @@
         <span class="swatch" style="background:${m.color}"></span>
         <span class="palette-text">
           <strong>${m.ion}</strong>
-          <span>${m.nameEn} / ${m.nameZh}</span>
+          <span class="palette-zh">${m.nameZh}</span>
         </span>
       `;
+      btn.title = `${m.nameEn} — ${m.colorNameEn}`;
       btn.addEventListener('click', () => selectMetal(id));
       paletteContainer.appendChild(btn);
     });
@@ -165,8 +186,9 @@
   buildScenePicker();
   buildPalette();
   buildReferenceTable();
+  editor.loadReferenceDemo();
   preloadAllScenes().then(() => {
-    simulator.setScene(BACKGROUND_SCENES[0].id);
+    selectScene(DEFAULT_SCENE_ID);
     simulator.initScene();
   });
   selectMetal('Na');

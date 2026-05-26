@@ -1,7 +1,76 @@
 /* Canvas firework simulator */
-const ROCKET_SPEED = -4.2;
+const ROCKET_SPEED = -11;
 const ROCKET_FRAME_MS = 16;
-const SHELL_STAGGER_MS = 1400;
+/** Cumulative launch delay (ms) per active shell index — tail layers stay tight. */
+const SHELL_STAGGER_CUMULATIVE_MS = [0, 52, 98, 118, 132];
+/** Hold full pattern after every shell has burst, then fade together. */
+const PATTERN_HOLD_MS = 2000;
+const PATTERN_FADE_MS = 2800;
+const SPARK_FADE_MS = 1600;
+const TRAIL_FADE_ALPHA = 0.2;
+const FADE_ALPHA_CUTOFF = 0.025;
+
+/** Smooth 0→1 ease for alpha (soft shoulder, gentle tail). */
+function smoothFade01(t) {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
+/** Progress 0→1 (age) → display alpha. */
+function fadeAlphaFromProgress(progress) {
+  const t = Math.max(0, Math.min(1, 1 - progress));
+  return smoothFade01(Math.pow(t, 0.8));
+}
+
+/** Fast radial glow — no shadowBlur (keeps fade phase at 60fps). */
+function drawSoftGlow(ctx, x, y, color, radius, alpha) {
+  if (alpha < FADE_ALPHA_CUTOFF) return;
+  ctx.globalCompositeOperation = 'lighter';
+  if (alpha < 0.22) {
+    ctx.globalAlpha = alpha * 0.88;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 1.05, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const outer = radius * 2.1;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, outer);
+  g.addColorStop(0, color);
+  g.addColorStop(0.35, color);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, outer, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+/** Full glow for peak brightness (launch / fresh burst). */
+function drawLuminousDot(ctx, x, y, color, radius, alpha = 1) {
+  if (alpha < FADE_ALPHA_CUTOFF) return;
+  if (alpha < 0.55) {
+    drawSoftGlow(ctx, x, y, color, radius, alpha);
+    return;
+  }
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.shadowBlur = radius * 5;
+  ctx.shadowColor = color;
+  ctx.globalAlpha = alpha * 0.45;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.globalAlpha = alpha;
+  ctx.shadowBlur = radius * 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
 
 /** Sky band + burst layout (fractions of canvas w/h) */
 const SKY_LAYOUT = {
@@ -16,6 +85,8 @@ const SKY_LAYOUT = {
   layerXFraction: [0.06, 0.25, 0.5, 0.75, 0.94],
   /** Y within sky band — far-L, L, centre, R, far-R */
   layerYFraction: [0.52, 0.56, 0.36, 0.5, 0.48],
+  /** Per-shell pattern scale — centre largest */
+  layerPatternScale: [0.88, 0.94, 1.15, 0.94, 0.88],
 };
 
 class FireworkSimulator {
@@ -32,6 +103,8 @@ class FireworkSimulator {
     this.lastPattern = null;
     this.onComplete = null;
     this.snapshotCanvas = null;
+    this.lastFrameTime = 0;
+    this.patternFadeBegin = null;
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -106,35 +179,53 @@ class FireworkSimulator {
     this.particles = [];
     this.rockets = [];
     this.patternDots = [];
+    this.patternFadeBegin = null;
     this.snapshotCanvas = null;
     this.clearCanvas();
 
     const activeLayerCount = nonEmpty.length;
-    let delay = 0;
+    const launchY = this.h - 20;
+    let activeIndex = 0;
+    let referenceFlightMs = null;
 
     shellsData.forEach((shell, layerIndex) => {
       if (!shellHasCells(shell, gridType)) return;
       const { x: burstX, y: burstY } = this.getBurstPositionForLayer(layerIndex);
+      const dist = launchY - burstY;
+      if (referenceFlightMs === null) {
+        referenceFlightMs = Math.max(
+          280,
+          Math.ceil(dist / Math.abs(ROCKET_SPEED)) * ROCKET_FRAME_MS
+        );
+      }
+      const staggerTable = SHELL_STAGGER_CUMULATIVE_MS;
+      const startDelay =
+        staggerTable[activeIndex] ??
+        staggerTable[staggerTable.length - 1] +
+          (activeIndex - staggerTable.length + 1) * 28;
 
       this.rockets.push({
         x: burstX,
-        y: this.h - 20,
+        y: launchY,
+        launchY,
         targetY: burstY,
         burstX,
         burstY,
-        vy: ROCKET_SPEED,
+        flightMs: referenceFlightMs,
+        flightElapsed: 0,
         trail: [],
         fired: false,
-        startDelay: delay,
+        startDelay,
         elapsed: 0,
         shell,
         gridType,
         layerIndex,
         shellCount: activeLayerCount,
       });
-      delay += SHELL_STAGGER_MS;
+      activeIndex += 1;
     });
 
+    this.lastFrameTime = performance.now();
     if (!this.rafId) this.loop();
   }
 
@@ -162,57 +253,47 @@ class FireworkSimulator {
     return Math.min(maxFromWidth, maxFromHeight * 0.97, maxFromBand);
   }
 
-  getCellSize() {
-    const gap = PANEL_GAP;
-    const radiusCells = CIRCLE_RADIUS;
-    const maxOuter = this.getMaxPatternOuterRadius();
-    let cellSize = Math.max(3.5, (maxOuter / radiusCells - gap) / 2);
+  getLayerScale(layerIndex) {
+    return SKY_LAYOUT.layerPatternScale?.[layerIndex] ?? 1;
+  }
 
-    let outerR = getPatternPixelRadius(cellSize) + cellSize * 0.45;
+  getCellSize(layerIndex = 2) {
+    const gap = PANEL_GAP;
+    const layerScale = this.getLayerScale(layerIndex);
+    const radiusCells = CIRCLE_RADIUS;
+    const maxOuter = this.getMaxPatternOuterRadius() / layerScale;
+    let cellSize = Math.max(4.2, (maxOuter / radiusCells - gap) / 2);
+
+    let outerR = getPatternPixelRadius(cellSize, layerScale) + cellSize * 0.45;
     if (outerR > maxOuter) {
       cellSize *= maxOuter / outerR;
-      cellSize = Math.max(3.5, cellSize);
+      cellSize = Math.max(4.2, cellSize);
     }
     return cellSize;
   }
 
-  burst(shell, burstX, burstY, shellCount, gridType) {
-    const cellSize = this.getCellSize();
+  burst(shell, burstX, burstY, shellCount, gridType, layerIndex = 2) {
+    const layerScale = this.getLayerScale(layerIndex);
+    const cellSize = this.getCellSize(layerIndex);
 
     getCellsForType(gridType).forEach((cell) => {
       const metalId = shell[cell.id];
       if (!metalId || !METALS[metalId]) return;
 
       const metal = METALS[metalId];
-      const { x, y } = cellToPixel(cell, gridType, cellSize);
+      const { x, y } = cellToPixel(cell, gridType, cellSize, layerScale);
       const target = { x: burstX + x, y: burstY + y };
 
-      this.particles.push({
-        x: burstX,
-        y: burstY,
+      this.patternDots.push({
         startX: burstX,
         startY: burstY,
         targetX: target.x,
         targetY: target.y,
         expand: 0,
-        expandSpeed: 0.14,
-        vx: 0,
-        vy: 0,
-        life: 1,
-        decay: 0.004 + Math.random() * 0.002,
+        expandSpeed: 0.38,
         color: metal.color,
-        size: metal.id === 'Mg' ? 4 : 2.8 + Math.random() * 0.4,
-        metalId,
-        willow: metal.willow,
-        isPattern: true,
-      });
-
-      this.patternDots.push({
-        x: target.x,
-        y: target.y,
-        color: metal.color,
-        life: 150,
-        size: cellSize * 0.38,
+        size: cellSize * 0.5,
+        layerIndex,
       });
     });
   }
@@ -221,26 +302,55 @@ class FireworkSimulator {
     return 1 - Math.pow(1 - t, 3);
   }
 
-  updatePatternParticle(p) {
-    if (p.expand < 1) {
-      p.expand = Math.min(1, p.expand + p.expandSpeed);
-      const t = this.easeOutCubic(p.expand);
-      p.x = p.startX + (p.targetX - p.startX) * t;
-      p.y = p.startY + (p.targetY - p.startY) * t;
-      return;
-    }
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vx *= 0.98;
-    p.vy *= 0.98;
-    p.vy += 0.012;
+  updatePatternDot(dot, dt = ROCKET_FRAME_MS) {
+    if (dot.expand >= 1) return;
+    const step = dt / ROCKET_FRAME_MS;
+    dot.expand = Math.min(1, dot.expand + dot.expandSpeed * step);
+  }
+
+  getPatternDotPosition(dot) {
+    const t = this.easeOutCubic(Math.min(1, dot.expand));
+    return {
+      x: dot.startX + (dot.targetX - dot.startX) * t,
+      y: dot.startY + (dot.targetY - dot.startY) * t,
+    };
+  }
+
+  allPatternDotsExpanded() {
+    return (
+      this.patternDots.length > 0 &&
+      this.patternDots.every((dot) => dot.expand >= 1)
+    );
+  }
+
+  schedulePatternFade(now) {
+    if (this.patternFadeBegin != null) return;
+    if (!this.rockets.every((r) => r.fired)) return;
+    if (!this.allPatternDotsExpanded()) return;
+    this.patternFadeBegin = now + PATTERN_HOLD_MS;
+  }
+
+  getPatternDotAlpha(now) {
+    if (this.patternFadeBegin == null) return 1;
+    if (now < this.patternFadeBegin) return 1;
+    const progress = Math.min(1, (now - this.patternFadeBegin) / PATTERN_FADE_MS);
+    return fadeAlphaFromProgress(progress);
   }
 
   clearCanvas() {
     this.ctx.clearRect(0, 0, this.w, this.h);
   }
 
-  drawEffects(ctx) {
+  getSparkFadeProgress(spark, now) {
+    if (spark.fadeBegin == null) spark.fadeBegin = now;
+    return Math.min(1, (now - spark.fadeBegin) / spark.fadeMs);
+  }
+
+  drawEffects(ctx, now = performance.now()) {
+    this.schedulePatternFade(now);
+    const patternAlpha = this.getPatternDotAlpha(now);
+    const fadePhase = this.patternFadeBegin != null && now >= this.patternFadeBegin;
+    const useLiteDraw = fadePhase || this.patternDots.length > 80;
     this.rockets.forEach((rocket) => {
       if (rocket.elapsed < rocket.startDelay || rocket.fired) return;
 
@@ -258,26 +368,27 @@ class FireworkSimulator {
       });
     });
 
-    this.patternDots.forEach((dot) => {
-      const alpha = Math.min(0.55, dot.life / 90) * 0.65;
-      ctx.beginPath();
-      ctx.arc(dot.x, dot.y, dot.size, 0, Math.PI * 2);
-      ctx.fillStyle = dot.color;
-      ctx.globalAlpha = alpha;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    });
+    if (patternAlpha < FADE_ALPHA_CUTOFF) {
+      // skip dot draws
+    } else {
+      this.patternDots.forEach((dot) => {
+        const { x, y } = this.getPatternDotPosition(dot);
+        const expanding = dot.expand < 1;
+        const alpha = patternAlpha * 0.94;
+        const size = dot.size * (expanding ? 1 : 0.82 + 0.18 * alpha);
+        const drawFn =
+          expanding || (!useLiteDraw && alpha >= 0.55)
+            ? drawLuminousDot
+            : drawSoftGlow;
+        drawFn(ctx, x, y, dot.color, size, alpha);
+      });
+    }
 
     this.particles.forEach((p) => {
-      if (p.life <= 0) return;
-
-      const alpha = Math.max(0, p.life);
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.globalAlpha = alpha;
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      const progress = this.getSparkFadeProgress(p, now);
+      if (progress >= 1) return;
+      const alpha = fadeAlphaFromProgress(progress);
+      drawSoftGlow(ctx, p.x, p.y, p.color, p.size * (0.75 + 0.25 * alpha), alpha);
     });
   }
 
@@ -305,36 +416,36 @@ class FireworkSimulator {
           burstY,
           shellCount: activeLayerCount,
           gridType,
+          layerIndex,
         };
       });
   }
 
-  drawShellPattern(ctx, shell, burstX, burstY, shellCount, gridType) {
-    const cellSize = this.getCellSize();
+  drawShellPattern(ctx, shell, burstX, burstY, shellCount, gridType, layerIndex = 2) {
+    const layerScale = this.getLayerScale(layerIndex);
+    const cellSize = this.getCellSize(layerIndex);
 
     getCellsForType(gridType).forEach((cell) => {
       const metalId = shell[cell.id];
       if (!metalId || !METALS[metalId]) return;
 
       const metal = METALS[metalId];
-      const { x, y } = cellToPixel(cell, gridType, cellSize);
+      const { x, y } = cellToPixel(cell, gridType, cellSize, layerScale);
       const tx = burstX + x;
       const ty = burstY + y;
-      const dotSize = cellSize * 0.38;
+      const dotSize = cellSize * 0.5;
 
-      ctx.beginPath();
-      ctx.arc(tx, ty, dotSize, 0, Math.PI * 2);
-      ctx.fillStyle = metal.color;
-      ctx.globalAlpha = 1;
-      ctx.fill();
+      drawLuminousDot(ctx, tx, ty, metal.color, dotSize, 1);
     });
   }
 
   /** Full-opacity pattern for export (from saved editor design). */
   drawFrozenPattern(ctx) {
-    this.getBurstLayouts().forEach(({ shell, burstX, burstY, shellCount, gridType }) => {
-      this.drawShellPattern(ctx, shell, burstX, burstY, shellCount, gridType);
-    });
+    this.getBurstLayouts().forEach(
+      ({ shell, burstX, burstY, shellCount, gridType, layerIndex }) => {
+        this.drawShellPattern(ctx, shell, burstX, burstY, shellCount, gridType, layerIndex);
+      }
+    );
   }
 
   renderFrozenPatternToContext(ctx) {
@@ -373,91 +484,108 @@ class FireworkSimulator {
     this.renderEffectsToContext(snapCtx);
   }
 
-  loop() {
+  loop(now = performance.now()) {
+    const dt = Math.min(48, Math.max(8, now - (this.lastFrameTime || now)));
+    this.lastFrameTime = now;
+
     this.clearCanvas();
-    this.ctx.fillStyle = 'rgba(5, 8, 24, 0.22)';
-    this.ctx.fillRect(0, 0, this.w, this.h);
 
     let active = false;
 
     this.rockets.forEach((rocket) => {
-      rocket.elapsed += ROCKET_FRAME_MS;
+      rocket.elapsed += dt;
       if (rocket.elapsed < rocket.startDelay) {
         active = true;
         return;
       }
 
       if (!rocket.fired) {
-        rocket.y += rocket.vy;
-        rocket.trail.push({ x: rocket.x, y: rocket.y, life: 1 });
-        if (rocket.trail.length > 24) rocket.trail.shift();
+        rocket.flightElapsed += dt;
+        const t = Math.min(1, rocket.flightElapsed / rocket.flightMs);
+        const eased = this.easeOutCubic(t);
+        rocket.y = rocket.launchY + (rocket.targetY - rocket.launchY) * eased;
 
-        if (rocket.y <= rocket.targetY) {
+        if (t >= 0.04 && t < 1) {
+          rocket.trail.push({ x: rocket.x, y: rocket.y, life: 1 });
+          if (rocket.trail.length > 20) rocket.trail.shift();
+        }
+
+        if (t >= 1) {
+          rocket.y = rocket.targetY;
           rocket.fired = true;
-          this.burst(rocket.shell, rocket.burstX, rocket.burstY, rocket.shellCount, rocket.gridType);
+          this.burst(
+            rocket.shell,
+            rocket.burstX,
+            rocket.burstY,
+            rocket.shellCount,
+            rocket.gridType,
+            rocket.layerIndex
+          );
         } else {
           active = true;
         }
       }
     });
 
-    this.patternDots = this.patternDots.filter((dot) => {
-      dot.life -= 1;
-      if (dot.life <= 0) return false;
-      active = true;
-      return true;
-    });
+    const allRocketsFired = this.rockets.every((r) => r.fired);
+    this.schedulePatternFade(now);
 
-    this.particles = this.particles.filter((p) => {
-      if (p.isPattern) {
-        this.updatePatternParticle(p);
-      } else {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.04;
-        p.vx *= 0.985;
-        p.vy *= 0.985;
+    if (this.patternDots.length > 0) {
+      this.patternDots.forEach((dot) => this.updatePatternDot(dot, dt));
+      const patternVisible =
+        this.patternFadeBegin == null ||
+        now < this.patternFadeBegin + PATTERN_FADE_MS;
+      if (patternVisible) active = true;
+      if (
+        this.patternFadeBegin != null &&
+        now >= this.patternFadeBegin + PATTERN_FADE_MS
+      ) {
+        this.patternDots = [];
       }
-      p.life -= p.decay;
-
-      if (p.life <= 0) return false;
-
-      if (p.willow && p.life > 0.3 && Math.random() < 0.08) {
-        this.particles.push({
-          x: p.x,
-          y: p.y,
-          vx: p.vx * 0.3 + (Math.random() - 0.5) * 0.5,
-          vy: p.vy * 0.5 + 0.3,
-          life: p.life * 0.7,
-          decay: p.decay * 1.2,
-          color: p.color,
-          size: p.size * 0.7,
-          metalId: p.metalId,
-          willow: true,
-        });
-      }
-
-      active = true;
-      return true;
-    });
-
-    this.drawEffects(this.ctx);
-
-    const hasVisibleContent =
-      active ||
-      this.particles.length > 0 ||
-      this.patternDots.length > 0 ||
-      this.rockets.some((r) => r.elapsed >= r.startDelay && !r.fired);
-    if (hasVisibleContent) {
-      this.saveSnapshotFrame();
     }
 
+    this.particles = this.particles.filter((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.04;
+      p.vx *= 0.985;
+      p.vy *= 0.985;
+      if (this.getSparkFadeProgress(p, now) >= 1) return false;
+      active = true;
+      return true;
+    });
+
+    if (!allRocketsFired && Math.random() < 0.012) {
+      const expanded = this.patternDots.filter((d) => d.expand >= 0.85);
+      if (expanded.length > 0) {
+        const d = expanded[(Math.random() * expanded.length) | 0];
+        const pos = this.getPatternDotPosition(d);
+        this.particles.push({
+          x: pos.x,
+          y: pos.y,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: Math.random() * 0.4,
+          fadeMs: SPARK_FADE_MS,
+          fadeBegin: now,
+          color: d.color,
+          size: d.size * 0.55,
+        });
+      }
+    }
+
+    const trailAlpha = 1 - Math.pow(1 - TRAIL_FADE_ALPHA, dt / ROCKET_FRAME_MS);
+    this.ctx.fillStyle = `rgba(5, 8, 24, ${trailAlpha})`;
+    this.ctx.fillRect(0, 0, this.w, this.h);
+
+    this.drawEffects(this.ctx, now);
+
     if (active) {
-      this.rafId = requestAnimationFrame(() => this.loop());
+      this.rafId = requestAnimationFrame((t) => this.loop(t));
     } else {
       this.running = false;
       this.rafId = null;
       this.hasFinishedLaunch = true;
+      this.saveSnapshotFrame();
       this.buildFrozenSnapshot();
       if (this.onComplete) this.onComplete();
     }
@@ -468,6 +596,7 @@ class FireworkSimulator {
     this.particles = [];
     this.rockets = [];
     this.patternDots = [];
+    this.patternFadeBegin = null;
     this.snapshotCanvas = null;
     this.running = false;
     this.hasFinishedLaunch = false;

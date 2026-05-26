@@ -29,10 +29,12 @@
           <canvas id="fireworks-canvas" aria-label="Firework animation canvas"></canvas>
         </div>
         <div class="canvas-controls">
-          <button type="button" id="btn-launch" class="btn btn-primary" data-i18n="launch"></button>
-          <button type="button" id="btn-replay" class="btn btn-secondary" data-i18n="replay"></button>
-          <button type="button" id="btn-reset" class="btn btn-secondary" data-i18n="reset"></button>
-          <button type="button" id="btn-download" class="btn btn-secondary" data-i18n="download" disabled></button>
+          <button type="button" id="btn-launch" class="btn btn-primary btn-launch" data-i18n="launch"></button>
+          <div class="canvas-controls-secondary">
+            <button type="button" id="btn-replay" class="btn btn-secondary" data-i18n="replay"></button>
+            <button type="button" id="btn-reset" class="btn btn-secondary" data-i18n="reset"></button>
+            <button type="button" id="btn-download" class="btn btn-secondary" data-i18n="download" disabled></button>
+          </div>
         </div>
         <p class="hint download-hint" data-i18n="downloadHint"></p>
       </section>

@@ -9,7 +9,7 @@ class PatternEditor {
     this.currentShell = 0;
     this.gridType = 'circle';
     this.isPainting = false;
-    this.cellSize = 14;
+    this.cellSize = 18;
 
     this.shells = Array.from({ length: this.shellCount }, () => createEmptyShellSet());
 
@@ -72,6 +72,13 @@ class PatternEditor {
     this.updateStatus();
   }
 
+  loadReferenceDemo() {
+    this.shells = buildReferenceDemoShells();
+    this.renderGrid();
+    this.onChange();
+    this.updateStatus();
+  }
+
   getLaunchPayload() {
     return {
       gridType: this.gridType,
@@ -87,30 +94,60 @@ class PatternEditor {
   render() {
     const templateButtons = PATTERN_TEMPLATES.map(
       (t) =>
-        `<button type="button" class="action-btn template-btn" data-template="${t.id}">${t.labelEn} ${t.labelZh}</button>`
+        `<button type="button" class="action-btn template-btn" data-template="${t.id}" title="${t.labelEn} ${t.labelZh}">
+          <span class="btn-label">${t.labelEn}</span>
+          <span class="btn-label-zh">${t.labelZh}</span>
+        </button>`
     ).join('');
 
     this.container.innerHTML = `
       <div class="editor-toolbar">
-        <div class="shell-tabs" role="tablist" aria-label="Firework layers"></div>
-        <div class="tool-group">
-          <button type="button" class="tool-btn active" data-tool="paint" title="Paint">\uD83C\uDFA8 Paint \u7E6A\u88FD</button>
-          <button type="button" class="tool-btn" data-tool="eraser" title="Eraser">\u232B Eraser \u6E05\u9664</button>
+        <div class="toolbar-section">
+          <span class="toolbar-label">Layers <span class="toolbar-label-zh">\u7159\u706B\u5C64</span></span>
+          <div class="shell-tabs" role="tablist" aria-label="Firework layers"></div>
         </div>
-        <div class="tool-group template-group" role="group" aria-label="Pattern templates">
-          ${templateButtons}
+        <div class="toolbar-section toolbar-row">
+          <div class="tool-group tool-group-primary" role="group" aria-label="Draw tools">
+            <button type="button" class="tool-btn active" data-tool="paint" title="Paint \u7E6A\u88FD">
+              <span class="btn-icon" aria-hidden="true">\uD83C\uDFA8</span>
+              <span class="btn-label">Paint</span>
+            </button>
+            <button type="button" class="tool-btn" data-tool="eraser" title="Eraser \u6E05\u9664">
+              <span class="btn-icon" aria-hidden="true">\u232B</span>
+              <span class="btn-label">Eraser</span>
+            </button>
+          </div>
+          <div class="tool-group template-group" role="group" aria-label="Pattern templates">
+            ${templateButtons}
+          </div>
         </div>
-        <div class="tool-group">
-          <button type="button" class="action-btn" data-action="clear">Clear \u5168\u90E8\u6E05\u9664</button>
-          <button type="button" class="action-btn" data-action="symmetry">Symmetry \u5DE6\u53F3\u5C0D\u7A31</button>
+        <div class="toolbar-section">
+          <div class="tool-group tool-group-actions">
+            <button type="button" class="action-btn" data-action="demo" title="Reference demo \u53C3\u8003\u5716\u6848">
+              <span class="btn-label">Demo</span>
+              <span class="btn-label-zh">\u53C3\u8003</span>
+            </button>
+            <button type="button" class="action-btn" data-action="clear" title="Clear \u5168\u90E8\u6E05\u9664">
+              <span class="btn-label">Clear</span>
+              <span class="btn-label-zh">\u6E05\u9664</span>
+            </button>
+            <button type="button" class="action-btn" data-action="symmetry" title="Symmetry \u5DE6\u53F3\u5C0D\u7A31">
+              <span class="btn-label">Mirror</span>
+              <span class="btn-label-zh">\u5C0D\u7A31</span>
+            </button>
+          </div>
         </div>
       </div>
       <div class="grid-wrap">
-        <div class="pattern-grid-host" role="grid" aria-label="Burst pattern map"></div>
+        <div class="grid-stage">
+          <div class="pattern-grid-host" role="grid" aria-label="Burst pattern map"></div>
+        </div>
       </div>
-      <p class="editor-status" aria-live="polite"></p>
+      <div class="editor-status" aria-live="polite"></div>
     `;
 
+    this.gridWrapEl = this.container.querySelector('.grid-wrap');
+    this.gridStageEl = this.container.querySelector('.grid-stage');
     this.gridEl = this.container.querySelector('.pattern-grid-host');
     this.statusEl = this.container.querySelector('.editor-status');
     this.shellTabsEl = this.container.querySelector('.shell-tabs');
@@ -118,6 +155,43 @@ class PatternEditor {
     this.updateShellTabs();
     this.renderGrid();
     this.updateStatus();
+    this.bindGridResize();
+  }
+
+  bindGridResize() {
+    if (this._gridResizeObserver) return;
+    const onResize = () => this.fitGridLayout();
+    window.addEventListener('resize', onResize);
+    if (typeof ResizeObserver !== 'undefined' && this.gridWrapEl) {
+      this._gridResizeObserver = new ResizeObserver(onResize);
+      this._gridResizeObserver.observe(this.gridWrapEl);
+    }
+  }
+
+  fitGridLayout() {
+    if (!this.gridWrapEl || !this.gridEl) return;
+    const layout = getPanelLayoutSize(this.cellSize);
+    const dotPx = Math.max(8, this.cellSize * 1.22);
+    const naturalW = layout.width + 4;
+    const naturalH = layout.height + dotPx * 0.5;
+
+    const pad =
+      parseFloat(getComputedStyle(this.gridWrapEl).paddingLeft) +
+      parseFloat(getComputedStyle(this.gridWrapEl).paddingRight);
+    const availW = this.gridWrapEl.clientWidth - pad;
+    const scale = availW > 0 ? Math.min(1, availW / naturalW) : 1;
+
+    if (scale < 0.999) {
+      this.gridEl.style.transform = `scale(${scale})`;
+      this.gridEl.style.transformOrigin = 'center top';
+    } else {
+      this.gridEl.style.transform = '';
+    }
+
+    const scaledH = Math.ceil(naturalH * scale);
+    if (this.gridStageEl) {
+      this.gridStageEl.style.minHeight = `${scaledH}px`;
+    }
   }
 
   updateShellTabs() {
@@ -129,8 +203,10 @@ class PatternEditor {
       btn.setAttribute('role', 'tab');
       btn.setAttribute('aria-selected', i === this.currentShell ? 'true' : 'false');
       const pos = SHELL_POSITION_LABELS[i];
-      const posLabel = pos ? `${pos.en} ${pos.zh}` : `${i + 1}`;
-      btn.textContent = `Layer ${i + 1} ${posLabel} \u7159\u706B\u5C64 ${i + 1}`;
+      const posEn = pos ? pos.en : `Layer ${i + 1}`;
+      const posZh = pos ? pos.zh : `${i + 1}`;
+      btn.title = `Layer ${i + 1} \u2014 ${posEn} (${posZh})`;
+      btn.innerHTML = `<span class="shell-num">${i + 1}</span><span class="shell-pos">${posZh}</span>`;
       btn.addEventListener('click', () => this.setShell(i));
       this.shellTabsEl.appendChild(btn);
     }
@@ -148,23 +224,20 @@ class PatternEditor {
     this.gridEl.style.height = `${layout.height}px`;
     this.gridEl.innerHTML = '';
 
+    const dotPx = Math.max(8, cellSize * 1.22);
+
     CIRCLE_CELLS.forEach((cell) => {
-      const { x, y } = squareToPixel(
-        cell.row,
-        cell.col,
-        cellSize,
-        PANEL_ROWS,
-        PANEL_COLS,
-        PANEL_GAP
-      );
+      const { x, y } = cellToPixel(cell, this.gridType, cellSize);
       const el = this.createCellElement('circle-cell', cell.id);
-      el.style.left = `${offsetX + x - cellSize}px`;
-      el.style.top = `${offsetY + y - cellSize}px`;
-      el.style.width = `${cellSize * 2}px`;
-      el.style.height = `${cellSize * 2}px`;
+      el.style.left = `${offsetX + x - dotPx / 2}px`;
+      el.style.top = `${offsetY + y - dotPx / 2}px`;
+      el.style.width = `${dotPx}px`;
+      el.style.height = `${dotPx}px`;
       this.applyCellStyle(el, shell[cell.id]);
       this.gridEl.appendChild(el);
     });
+
+    this.fitGridLayout();
   }
 
   createCellElement(className, cellId) {
@@ -184,8 +257,9 @@ class PatternEditor {
   applyCellStyle(cell, metalId) {
     cell.classList.toggle('filled', !!metalId);
     if (metalId && METALS[metalId]) {
-      cell.style.backgroundColor = METALS[metalId].color;
-      cell.style.boxShadow = `0 0 8px ${METALS[metalId].color}`;
+      const c = METALS[metalId].color;
+      cell.style.backgroundColor = c;
+      cell.style.boxShadow = `0 0 12px ${c}, 0 0 4px rgba(255,255,255,0.5)`;
       cell.title = `${METALS[metalId].ion} ${METALS[metalId].nameZh}`;
     } else {
       cell.style.backgroundColor = '';
@@ -197,7 +271,14 @@ class PatternEditor {
   updateStatus() {
     const m = METALS[this.selectedMetal];
     const cells = this.countCells();
-    this.statusEl.textContent = `Layer ${this.currentShell + 1} \u7159\u706B\u5C64 ${this.currentShell + 1} \u00B7 ${cells} cells \u683C \u00B7 ${m.ion} ${m.nameEn} ${m.nameZh}`;
+    const total = CIRCLE_CELLS.length;
+    const pos = SHELL_POSITION_LABELS[this.currentShell];
+    const posZh = pos ? pos.zh : '';
+    this.statusEl.innerHTML = `
+      <span class="status-chip status-layer">L${this.currentShell + 1} ${posZh}</span>
+      <span class="status-chip status-count">${cells} / ${total}</span>
+      <span class="status-chip status-metal" style="--metal:${m.color}">${m.ion}</span>
+    `;
   }
 
   bindEvents() {
@@ -212,6 +293,7 @@ class PatternEditor {
     this.container.querySelectorAll('[data-action]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.action;
+        if (action === 'demo') this.loadReferenceDemo();
         if (action === 'clear') this.clearShell();
         if (action === 'symmetry') this.applySymmetry();
       });
