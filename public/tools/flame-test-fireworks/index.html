@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HKDSE Flame Test Fireworks</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>HKDSE Flame Test Fireworks</h1>
+    <p class="subtitle" data-i18n="subtitle"></p>
+  </header>
+
+  <main class="layout">
+    <section class="panel left-panel" aria-label="Pattern editor">
+      <h2 data-i18n="editorTitle"></h2>
+      <p class="hint" data-i18n="editorHint"></p>
+      <div id="editor-root"></div>
+    </section>
+
+    <div class="sky-column">
+      <section class="panel center-panel" aria-label="Firework display">
+        <h2 data-i18n="skyTitle"></h2>
+        <p class="scene-label" data-i18n="sceneTitle"></p>
+        <div id="scene-picker" class="scene-picker" role="radiogroup" aria-label="Background scene"></div>
+        <div class="canvas-wrap">
+          <img id="scene-background" class="scene-background" alt="" />
+          <canvas id="fireworks-canvas" aria-label="Firework animation canvas"></canvas>
+        </div>
+        <div class="canvas-controls">
+          <button type="button" id="btn-launch" class="btn btn-primary" data-i18n="launch"></button>
+          <button type="button" id="btn-replay" class="btn btn-secondary" data-i18n="replay"></button>
+          <button type="button" id="btn-reset" class="btn btn-secondary" data-i18n="reset"></button>
+          <button type="button" id="btn-download" class="btn btn-secondary" data-i18n="download" disabled></button>
+        </div>
+        <p class="hint download-hint" data-i18n="downloadHint"></p>
+      </section>
+
+      <section class="panel palette-panel" aria-label="Metal palette">
+        <h2 data-i18n="paletteTitle"></h2>
+        <div id="palette-root" class="palette"></div>
+      </section>
+
+      <section class="panel ref-section" aria-label="Flame test reference">
+        <button type="button" id="ref-toggle" class="ref-toggle" aria-expanded="false" aria-controls="ref-panel" data-i18n="refToggle"></button>
+        <div id="ref-panel" class="ref-panel">
+          <table class="ref-table">
+            <thead>
+              <tr>
+                <th data-i18n="thIon"></th>
+                <th data-i18n="thMetal"></th>
+                <th data-i18n="thColour"></th>
+                <th data-i18n="thNotes"></th>
+              </tr>
+            </thead>
+            <tbody id="ref-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="js/flame-data.js"></script>
+  <script src="js/background-scenes-embedded.js"></script>
+  <script src="js/background-scenes.js"></script>
+  <script src="js/grid-layout.js"></script>
+  <script src="js/editor.js"></script>
+  <script src="js/fireworks.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

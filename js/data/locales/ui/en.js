@@ -206,7 +206,9 @@ export const enUI = {
     "chemCatchName": "Chem Catch",
     "chemCatchDesc": "Read the ionic question and shoot the fish with the correct formula — a fast ionic-formula practice game.",
     "labMatchName": "Lab & Hazard Match",
-    "labMatchDesc": "Memory game: match bilingual lab apparatus names to pictures and OSHC chemical hazard labels."
+    "labMatchDesc": "Memory game: match bilingual lab apparatus names to pictures and OSHC chemical hazard labels.",
+    "flameFireworksName": "Flame Test Fireworks",
+    "flameFireworksDesc": "Design metal-ion burst patterns, launch them over night-sky scenes, and download your flame-test firework display."
   },
   "worksheet": {
     "title": "Worksheet Generator",

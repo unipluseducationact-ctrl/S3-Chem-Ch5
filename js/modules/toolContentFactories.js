@@ -10,6 +10,7 @@ const TOOL_CONTENT_FACTORIES = {
   "atomic-arcade": generateAtomicArcadeToolContent,
   "chem-catch": generateChemCatchToolContent,
   "lab-hazard-match": generateLabHazardMatchToolContent,
+  "flame-test-fireworks": generateFlameTestFireworksToolContent,
 };
 
 export function getChemToolContent(toolType) {
@@ -2080,6 +2081,17 @@ function generateLabHazardMatchToolContent() {
         <div class="tool-modal-content lab-hazard-match-wrap">
             <iframe class="lab-hazard-match-iframe"
                 src="tools/lab-hazard-match/index.html"
+                title="${title.replace(/"/g, "&quot;")}"></iframe>
+        </div>
+    `;
+}
+
+function generateFlameTestFireworksToolContent() {
+  const title = t("tools.flameFireworksName");
+  return `
+        <div class="tool-modal-content flame-test-fireworks-wrap">
+            <iframe class="flame-test-fireworks-iframe"
+                src="tools/flame-test-fireworks/index.html"
                 title="${title.replace(/"/g, "&quot;")}"></iframe>
         </div>
     `;

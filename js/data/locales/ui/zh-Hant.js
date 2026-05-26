@@ -205,7 +205,9 @@ export const zhHantUI = {
     "chemCatchName": "化學捉魚",
     "chemCatchDesc": "先看離子題目，射中顯示正確化學式的魚——快速練習離子化學式。",
     "labMatchName": "實驗器皿與危險標示配對",
-    "labMatchDesc": "配對遊戲：中英實驗器皿名稱與圖片，以及職安處化學品危險標籤。"
+    "labMatchDesc": "配對遊戲：中英實驗器皿名稱與圖片，以及職安處化學品危險標籤。",
+    "flameFireworksName": "焰色試驗煙火",
+    "flameFireworksDesc": "以金屬離子設計圓形煙火圖案，在夜景背景發射，並可下載合成圖片。"
   },
   "worksheet": {
     "title": "練習單生成器",

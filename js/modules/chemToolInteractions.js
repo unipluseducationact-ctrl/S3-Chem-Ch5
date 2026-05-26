@@ -20,6 +20,7 @@ const TOOL_LISTENER_MAP = {
   "atomic-arcade": () => {},
   "chem-catch": () => {},
   "lab-hazard-match": () => {},
+  "flame-test-fireworks": () => {},
 };
 
 export function attachToolEventListeners(toolType) {
